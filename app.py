@@ -1,43 +1,38 @@
 import streamlit as st
-import pandas as pd
+from cryptography.fernet import Fernet
 
-# Streamlit app layout
-st.title('Agent Performance Tracker')
+# Generate a key for encryption/decryption (store this securely in a real application)
+key = Fernet.generate_key()
+cipher_suite = Fernet(key)
 
-# File upload widget
-file = st.file_uploader("Upload your CSV file", type="csv")
+# Function to encrypt a message
+def encrypt_message(message):
+    return cipher_suite.encrypt(message.encode())
 
-if file is not None:
-    # Read the CSV file
-    my_data = pd.read_csv(file, encoding='ISO-8859-1')
+# Function to decrypt a message
+def decrypt_message(encrypted_message):
+    return cipher_suite.decrypt(encrypted_message).decode()
 
-    # Convert 'Date' to datetime
-    my_data['Date'] = pd.to_datetime(my_data['Date'], format='%d/%m/%Y')
+# Streamlit App
+st.title("Secure Message Delivery")
 
-    # Input fields for Agent name and date range
-    agent_name = st.selectbox('Select Agent Name', my_data['Agent name'].unique())
-    start_date = st.date_input('Start Date', min_value=my_data['Date'].min())
-    end_date = st.date_input('End Date', min_value=start_date)
+# Input message
+message = st.text_area("Enter your message:")
 
-    # Filter the data based on inputs
-    filtered_data = my_data[(my_data['Agent name'] == agent_name) & 
-                            (my_data['Date'] >= pd.to_datetime(start_date))]
+if st.button("Encrypt and Send"):
+    if message:
+        encrypted_message = encrypt_message(message)
+        st.success("Message encrypted successfully!")
+        st.write("Encrypted Message:", encrypted_message.decode())
 
-    # Only filter by 'end_date' if it's provided
-    if end_date:
-        filtered_data = filtered_data[filtered_data['Date'] <= pd.to_datetime(end_date)]
-
-    # Calculate 'Performance' column (whether the agent achieved the target)
-    filtered_data['Target Achieved'] = filtered_data['Processed Lots'] >= filtered_data['Target Lots']
-
-    # Displaying the result
-    if filtered_data.empty:
-        st.write("No data available for the selected agent and date range.")
+        # Simulate sending the encrypted message to another user
+        st.session_state['encrypted_message'] = encrypted_message
     else:
-        st.write(filtered_data[['Date', 'Queue', 'Processed Lots', 'Reasons', 'Target Achieved']])
+        st.error("Please enter a message.")
 
-        # Check if target was achieved for the entire period
-        if filtered_data['Target Achieved'].all():
-            st.success('Target Achieved!')
-        else:
-            st.warning('Target Not Achieved')
+# Decrypt message when the recipient interacts with it
+if 'encrypted_message' in st.session_state:
+    if st.button("Decrypt Message"):
+        decrypted_message = decrypt_message(st.session_state['encrypted_message'])
+        st.success("Message decrypted successfully!")
+        st.write("Decrypted Message:", decrypted_message)
